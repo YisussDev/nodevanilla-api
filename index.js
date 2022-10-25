@@ -9,6 +9,7 @@ const app = http.createServer(async (req, res) => {
     const dataJSON = JSON.parse(await fs.readFile(pathData, 'utf8'));
     if (METHOD === 'GET') {
         res.write(JSON.stringify(dataJSON))
+        res.statusCode = 200;
         res.end()
     }
     else if (METHOD === 'POST') {
@@ -20,6 +21,7 @@ const app = http.createServer(async (req, res) => {
                 fs.writeFile(pathData, JSON.stringify(dataJSON), error => {
                     console.log(error);
                 })
+                res.statusCode = 200;
                 res.write(JSON.stringify(dataJSON))
                 res.end()
             }
@@ -29,21 +31,29 @@ const app = http.createServer(async (req, res) => {
         req.on("data", data => {
             let noExist = true;
             const objectReq = JSON.parse(data);
-            dataJSON.map((res, ind) => {
-                if (res.id === objectReq.id) {
-                   dataJSON[ind].state = !dataJSON[ind].state;
-                   noExist = false;
-                }
-            })
-            if (noExist) {
-                res.write('No existe')
-                res.end();
-            }
-            else{
-                fs.writeFile(pathData, JSON.stringify(dataJSON), error => {
-                    console.log(error);
+            if ((typeof objectReq.id) === 'number') {
+                dataJSON.map((res, ind) => {
+                    if (res.id === objectReq.id) {
+                        dataJSON[ind].state = !dataJSON[ind].state;
+                        noExist = false;
+                    }
                 })
-                res.write(JSON.stringify(dataJSON))
+                if (noExist) {
+                    res.statusCode = 404;
+                    res.write('No existe');
+                    res.end();
+                }
+                else {
+                    fs.writeFile(pathData, JSON.stringify(dataJSON), error => {
+                        console.log(error);
+                    })
+                    res.statusCode = 204;
+                    res.end();
+                }
+            }
+            else {
+                res.statusCode = 404;
+                res.write('Ingrese ID valido');
                 res.end();
             }
         })
@@ -52,12 +62,27 @@ const app = http.createServer(async (req, res) => {
     else if (METHOD === 'DELETE') {
         req.on("data", data => {
             const objectReq = JSON.parse(data);
-            if (objectReq.id !== null) {
+            if ((typeof objectReq.id) === 'number') {
                 const newArray = dataJSON.filter(res => res.id !== objectReq.id)
-                fs.writeFile(pathData, JSON.stringify(newArray), error => {
-                    console.log(error);
-                })
-                res.write(JSON.stringify(newArray));
+                if (newArray.length >= 1) {
+                    fs.writeFile(pathData, JSON.stringify(newArray), error => {
+                        console.log(error);
+                    })
+                    res.statusCode = 200;
+                    res.write('Eliminado correctamente');
+                    res.end();
+                }else{
+                    fs.writeFile(pathData, JSON.stringify([]), error => {
+                        console.log(error);
+                    })
+                    res.statusCode = 200;
+                    res.write('No hay más objetos');
+                    res.end();
+                }
+            }
+            else {
+                res.statusCode = 404;
+                res.write('Ingrese ID valido');
                 res.end();
             }
         })
@@ -71,11 +96,11 @@ app.listen(PORT, () => {
 });
 
 const getId = (array) => {
-    if(array.length >= 1){
+    if (array.length >= 1) {
         const idMax = array.sort((a, b) => a.id - b.id)
         return parseInt(idMax[idMax.length - 1].id) + 1;
     }
-    else{
+    else {
         return 1
     }
 }
